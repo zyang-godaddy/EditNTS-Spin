@@ -3,3 +3,5 @@ numpy
 torch 
 pandas
 glob2
+tqdm
+

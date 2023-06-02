@@ -1,2 +1,4 @@
 script/*
 vocab_data/glove.6B.100d.txt
+data/*
+results/*

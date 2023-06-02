@@ -15,6 +15,8 @@ import data
 from checkpoint import Checkpoint
 from editnts import EditNTS
 from evaluator import Evaluator
+from tqdm import tqdm 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 PAD = 'PAD' #  This has a vocab id, which is used to represent out-of-vocabulary words [0]
 UNK = 'UNK' #  This has a vocab id, which is used to represent out-of-vocabulary words [1]
@@ -70,7 +72,8 @@ def reweigh_batch_loss(target_id_bath):
     NLL_weight[KEEP_ID] = 1. / keep_c+1
     NLL_weight[DEL_ID] = 1. / del_c+1
     NLL_weight[5] = 1. / stop_c+1
-    NLL_weight_t = torch.from_numpy(NLL_weight).float().cuda()
+    # NLL_weight_t = torch.from_numpy(NLL_weight).float().cuda()
+    NLL_weight_t = torch.from_numpy(NLL_weight).float().to(device)
     # print(pad_c, unk_c, start_c, stop_c, keep_c, del_c, other_c)
     return NLL_weight_t
 
@@ -83,7 +86,7 @@ def reweight_global_loss(w_add,w_keep,w_del):
     return NLL_weight
 
 def training(edit_net,nepochs, args, vocab, print_every=100, check_every=500):
-    eval_dataset = data.Dataset(args.data_path + 'val.df.filtered.pos') # load eval dataset
+    eval_dataset = data.Dataset(args.data_path + 'develop_tagged.pickle.bz2') # load eval dataset
     evaluator = Evaluator(loss= nn.NLLLoss(ignore_index=vocab.w2i['PAD'], reduction='none'))
     editnet_optimizer = torch.optim.Adam(edit_net.parameters(),
                                           lr=1e-3, weight_decay=1e-6)
@@ -102,12 +105,12 @@ def training(edit_net,nepochs, args, vocab, print_every=100, check_every=500):
     for epoch in range(nepochs):
         # scheduler.step()
         #reload training for every epoch
-        if os.path.isfile(args.data_path+'train.df.filtered.pos'):
-            train_dataset = data.Dataset(args.data_path + 'train.df.filtered.pos')
+        if os.path.isfile(args.data_path+'develop_tagged.pickle.bz2'):
+            train_dataset = data.Dataset(args.data_path + 'develop_tagged.pickle.bz2')
         else:  # iter chunks and vocab_data
-            train_dataset = data.Datachunk(args.data_path + 'train.df.filtered.pos')
+            train_dataset = data.Datachunk(args.data_path + 'train_tagged.pickle')
 
-        for i, batch_df in train_dataset.batch_generator(batch_size=args.batch_size, shuffle=True):
+        for i, batch_df in tqdm(train_dataset.batch_generator(batch_size=args.batch_size, shuffle=True), desc=f"epoch={epoch}"):
 
             #     time1 = time.time()
             prepared_batch, syn_tokens_list = data.prepare_batch(batch_df, vocab, args.max_seq_len) #comp,scpn,simp
@@ -169,20 +172,20 @@ def training(edit_net,nepochs, args, vocab, print_every=100, check_every=500):
                 edit_net.train()
     return edit_net
 
-dataset='newsela'
+# dataset='newsela'
 def main():
     torch.manual_seed(233)
     logging.basicConfig(level=logging.INFO, format='%(asctime)s [INFO] %(message)s')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', type=str,dest='data_path',
-                        default='/home/ml/ydong26/data/EditNTS_data/editnet_data/%s/'%dataset,
+                        default='/Users/zyang/Documents/VSCode/DeepSpin/EditNTS-Spin/data/',
                         help='Path to train vocab_data')
     parser.add_argument('--store_dir', action='store', dest='store_dir',
-                        default='/home/ml/ydong26/tmp_store/editNTS_%s'%dataset,
+                        default='/Users/zyang/Documents/VSCode/DeepSpin/EditNTS-Spin/results',
                         help='Path to exp storage directory.')
     parser.add_argument('--vocab_path', type=str, dest='vocab_path',
-                        default='../vocab_data/',
+                        default='/Users/zyang/Documents/VSCode/DeepSpin/EditNTS-Spin/vocab_data/',
                         help='Path contains vocab, embedding, postag_set')
     parser.add_argument('--load_model', type=str, dest='load_model',
                         default=None,
@@ -190,18 +193,18 @@ def main():
 
     parser.add_argument('--vocab_size', dest='vocab_size', default=30000, type=int)
     parser.add_argument('--batch_size', dest='batch_size', default=32, type=int)
-    parser.add_argument('--max_seq_len', dest='max_seq_len', default=100)
+    parser.add_argument('--max_seq_len', dest='max_seq_len', default=5)
 
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--hidden', type=int, default=200)
     parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--device', type=int, default=1,
+    parser.add_argument('--device', type=int, default=0,
                         help='select GPU')
 
     #train_file = '/media/vocab_data/yue/TS/editnet_data/%s/train.df.filtered.pos'%dataset
     # test='/media/vocab_data/yue/TS/editnet_data/%s/test.df.pos' % args.dataset
     args = parser.parse_args()
-    torch.cuda.set_device(args.device)
+    # torch.cuda.set_device(args.device)
 
             # load vocab-related files and init vocab
     print('*'*10)
@@ -234,14 +237,16 @@ def main():
 
     print('init editNTS model')
     edit_net = EditNTS(hps, n_layers=1)
-    edit_net.cuda()
+    # edit_net.cuda()
+    edit_net.to(device)
 
     if args.load_model is not None:
         print("load edit_net for further training")
         ckpt_path = args.load_model
         ckpt = Checkpoint.load(ckpt_path)
         edit_net = ckpt.model
-        edit_net.cuda()
+        # edit_net.cuda()
+        edit_net.to(device)
         edit_net.train()
 
     training(edit_net, args.epochs, args, vocab)

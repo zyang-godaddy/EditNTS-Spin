@@ -8,7 +8,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-use_cuda = torch.cuda.is_available()
+# use_cuda = torch.cuda.is_available()
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 import data
 from torch.nn.utils.rnn import pack_padded_sequence as pack
 from torch.nn.utils.rnn import pad_packed_sequence as unpack
@@ -184,12 +186,14 @@ class EditDecoderRNN(nn.Module):
                 ## find current word
                 inds = torch.LongTensor(counter_for_keep_del)
                 dummy = inds.view(-1, 1, 1)
-                dummy = dummy.expand(dummy.size(0), dummy.size(1), encoder_outputs_org.size(2)).cuda()
+                # dummy = dummy.expand(dummy.size(0), dummy.size(1), encoder_outputs_org.size(2)).cuda()
+                dummy = dummy.expand(dummy.size(0), dummy.size(1), encoder_outputs_org.size(2)).to(device)
                 c = encoder_outputs_org.gather(1, dummy)
 
                 inds = torch.LongTensor(counter_for_keep_ins)
                 dummy = inds.view(-1, 1, 1)
-                dummy = dummy.expand(dummy.size(0), dummy.size(1), output_words.size(2)).cuda()
+                # dummy = dummy.expand(dummy.size(0), dummy.size(1), output_words.size(2)).cuda()
+                dummy = dummy.expand(dummy.size(0), dummy.size(1), output_words.size(2)).to(device)
                 c_word = output_words.gather(1, dummy)
 
                 output_t = torch.cat((decoder_output_t, attn_applied_org_t, c,c_word),
@@ -245,7 +249,9 @@ class EditDecoderRNN(nn.Module):
                 ## find current word
                 inds = torch.LongTensor(counter_for_keep_del)
                 dummy = inds.view(-1, 1, 1)
-                dummy = dummy.expand(dummy.size(0), dummy.size(1), encoder_outputs_org.size(2)).cuda()
+                # dummy = dummy.expand(dummy.size(0), dummy.size(1), encoder_outputs_org.size(2)).cuda()
+                dummy = dummy.expand(dummy.size(0), dummy.size(1), encoder_outputs_org.size(2)).to(device)
+
                 c = encoder_outputs_org.gather(1, dummy)
 
                 output_t = torch.cat((output_edits, attn_applied_org_t, c, hidden_words[0]),
@@ -266,7 +272,8 @@ class EditDecoderRNN(nn.Module):
                 # update rnn_words
                 # find previous generated word
                 # give previous word from tgt simp_sent
-                dummy_2 = inds.view(-1, 1).cuda()
+                # dummy_2 = inds.view(-1, 1).cuda()
+                dummy_2 = inds.view(-1, 1).to(device)
                 org_t = org_ids.gather(1, dummy_2)
                 hidden_words = self.execute_batch(pred_action, org_t, hidden_words)  # we give the editted subsequence
                 # hidden_words = self.execute_batch(pred_action, org_t, hidden_org)  #here we only give the word
@@ -302,7 +309,8 @@ class EditDecoderRNN(nn.Module):
         ## find current word
         inds = torch.LongTensor(counter_for_keep_del)
         dummy = inds.view(-1, 1, 1)
-        dummy = dummy.expand(dummy.size(0), dummy.size(1), encoder_outputs_org.size(2)).cuda()
+        # dummy = dummy.expand(dummy.size(0), dummy.size(1), encoder_outputs_org.size(2)).cuda()
+        dummy = dummy.expand(dummy.size(0), dummy.size(1), encoder_outputs_org.size(2)).to(device)
         c = encoder_outputs_org.gather(1, dummy)
 
         output_t = torch.cat((decoder_output_t, attn_applied_org_t, c, hidden_words[0]),
@@ -320,7 +328,8 @@ class EditDecoderRNN(nn.Module):
             counter_for_keep_del = [i[0] + 1 if i[1] == 2 or i[1] == 3 or i[1] == 5 else i[0]
                                     for i in zip(counter_for_keep_del, out_id_t_k)]
 
-            dummy_2 = inds.view(-1, 1).cuda()
+            # dummy_2 = inds.view(-1, 1).cuda()
+            dummy_2 = inds.view(-1, 1).to(device)
             org_t = org_ids.gather(1, dummy_2)
             hidden_words = self.execute_batch(out_id_t_k, org_t, hidden_words)  # input[:, t + 1]=gold action,
 

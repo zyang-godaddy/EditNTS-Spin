@@ -11,6 +11,8 @@ import torch
 from torch.autograd import Variable
 import random
 import pickle
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 # <s> and </s> are used in the vocab_data files to segment the abstracts into sentences. They don't receive vocab ids.
 
 
@@ -63,7 +65,8 @@ def batchify(data, max_len=100): #max_len cutout defined by human
         except:
             batch[i, :min(len(s), maxlen)] = s[:min(len(s), maxlen)]
         # batch[i, s.shape[0]:] = 3
-    return Variable(torch.from_numpy(batch)).cuda()
+    # return Variable(torch.from_numpy(batch)).cuda()
+    return Variable(torch.from_numpy(batch)).to(device)
 
 
 def batchify_start_stop(data, max_len=100,start_id=4,stop_id=5): #max_len cutout defined by human
@@ -78,7 +81,8 @@ def batchify_start_stop(data, max_len=100,start_id=4,stop_id=5): #max_len cutout
     for i, s in enumerate(data):
         batch[i, :min(s.shape[0],maxlen)] = s[:min(s.shape[0],maxlen)]
         # batch[i, s.shape[0]:] = 3
-    return Variable(torch.from_numpy(batch)).cuda()
+    # return Variable(torch.from_numpy(batch)).cuda()
+    return Variable(torch.from_numpy(batch)).to(device)
 
 
 def batchify_stop(data, max_len=100,start_id=4,stop_id=5): #max_len cutout defined by human
@@ -92,7 +96,8 @@ def batchify_stop(data, max_len=100,start_id=4,stop_id=5): #max_len cutout defin
     for i, s in enumerate(data):
         batch[i, :min(s.shape[0],maxlen)] = s[:min(s.shape[0],maxlen)]
         # batch[i, s.shape[0]:] = 3
-    return Variable(torch.from_numpy(batch)).cuda()
+    # return Variable(torch.from_numpy(batch)).cuda()
+    return Variable(torch.from_numpy(batch)).to(device)
 
 class Vocab():
     def __init__(self):
@@ -141,7 +146,8 @@ class POSvocab():
         self.i2w = {}
         self.count = 0
         self.embedding = None
-        with open(vocab_path+'postag_set.p','r') as f:
+        with open(os.path.join(vocab_path, 'postag_set.pickle'),'rb') as f:
+        # with open(os.path.join(vocab_path, 'averaged_perceptron_tagger.pickle'),'r') as f:
             # postag_set is from NLTK
             tagdict = pickle.load(f)
 
@@ -190,7 +196,8 @@ class Datachunk():
 
 class Dataset():
     def __init__(self,data_path):
-        self.df = pd.read_pickle(data_path)
+        self.df = pd.read_pickle(data_path, compression="bz2")
+        # self.df = pd.read_csv(data_path, sep='\t')
         self.idx_count = 0
 
     def example_generator(self):
@@ -220,13 +227,19 @@ def prepare_batch(batch_df,vocab, max_length=100):
         """
     inp = batchify_stop(batch_df['comp_ids'], max_len=max_length)
     inp_pos = batchify_stop(batch_df['comp_pos_ids'], max_len=max_length)
-    inp_simp=batchify_start_stop(batch_df['simp_id'], max_len=max_length)
+    inp_simp=batchify_start_stop(batch_df['simp_ids'], max_len=max_length)
     # tgt = batchify_start_stop(batch_df['edit_ids'], max_len=max_length)  # edit ids has early stop
     tgt = batchify_start_stop(batch_df['new_edit_ids'], max_len=max_length)  # new_edit_ids do not do early stopping
     # I think new edit ids do not ave early stopping
     return [inp, inp_pos, tgt,inp_simp], batch_df['comp_tokens']
 
 
-
+if __name__ == '__main__':
+    vocab_path = "/Users/zyang/Documents/VSCode/DeepSpin/EditNTS-Spin/vocab_data" 
+    # with open(os.path.join(vocab_path, 'averaged_perceptron_tagger.pickle'),'r') as f:
+    with open(os.path.join(vocab_path, 'postag_set.pickle'),'rb') as f:
+        # postag_set is from NLTK
+        tagdict = pickle.load(f)
+    print(tagdict)
 
 

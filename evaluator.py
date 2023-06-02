@@ -8,6 +8,7 @@ import nltk
 import data
 nltk.data.path.append("/media/nvme/nltk_data")
 from label_edits import edit2sent
+from tqdm import tqdm 
 
 
 def sort_by_lens(seq, seq_lengths):
@@ -46,7 +47,7 @@ class Evaluator():
         sys_out=[]
 
         print('Doing tokenized evaluation')
-        for i, batch_df in dataset.batch_generator(batch_size=1, shuffle=False):
+        for i, batch_df in tqdm(dataset.batch_generator(batch_size=1, shuffle=False), desc="evaluating ..."):
             model.eval()
             prepared_batch, syn_tokens_list = data.prepare_batch(batch_df, vocab, args.max_seq_len)  # comp,scpn,simp
 
